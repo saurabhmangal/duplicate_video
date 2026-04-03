@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Duplicate Video Detector</title>
+  <style>
+    /* ══════════════════════════════════════════════
+       DESIGN TOKENS
+    ══════════════════════════════════════════════ */
+    :root {
+      --bg-base:       #07080f;
+      --bg-surface:    #0e1018;
+      --bg-card:       #13151f;
+      --bg-card-hover: #181b27;
+      --bg-input:      #1a1d2a;
+      --border:        #252838;
+      --border-bright: #363a55;
+
+      --accent:        #7c6af7;
+      --accent-light:  #a89af9;
+      --accent-glow:   rgba(124, 106, 247, 0.25);
+      --accent-soft:   rgba(124, 106, 247, 0.12);
+
+      --green:         #3dd68c;
+      --green-soft:    rgba(61, 214, 140, 0.12);
+      --yellow:        #f5c842;
+      --yellow-soft:   rgba(245, 200, 66, 0.12);
+      --red:           #f25757;
+      --red-soft:      rgba(242, 87, 87, 0.12);
+      --blue:          #4da6ff;
+      --blue-soft:     rgba(77, 166, 255, 0.12);
+
+      --text-primary:  #e8eaf6;
+      --text-secondary:#9198b5;
+      --text-muted:    #5c6080;
+
+      --radius-sm:     8px;
+      --radius-md:     12px;
+      --radius-lg:     18px;
+      --radius-xl:     24px;
+
+      --shadow-card:   0 4px 24px rgba(0,0,0,0.4);
+      --shadow-glow:   0 0 40px rgba(124,106,247,0.15);
+
+      --transition:    0.2s ease;
+    }
+
+    /* ══════════════════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ══════════════════════════════════════════════
+       LAYOUT
+    ══════════════════════════════════════════════ */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    /* ══════════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════════ */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(124,106,247,0.3);
+      color: var(--accent-light);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #fff 30%, var(--accent-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      color: var(--text-secondary);
+      font-size: 16px;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    /* ══════════════════════════════════════════════
+       CONCEPT CARDS
+    ══════════════════════════════════════════════ */
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .concept-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+
+    .concept-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-2px);
+    }
+
+    .concept-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .concept-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-light);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .concept-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ══════════════════════════════════════════════
+       UPLOAD SECTION
+    ══════════════════════════════════════════════ */
+    .upload-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 40px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed var(--border-bright);
+      border-radius: var(--radius-lg);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, var(--accent-soft) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .drop-zone:hover::before, .drop-zone.drag-over::before {
+      opacity: 1;
+    }
+
+    .drop-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 20px var(--accent));
+    }
+
+    .drop-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .drop-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* Settings row */
+    .settings-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tooltip-icon {
+      cursor: help;
+      color: var(--text-muted);
+      font-style: normal;
+      font-size: 11px;
+      background: var(--border);
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .setting-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border-bright);
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .range-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-light);
+      min-width: 40px;
+      text-align: right;
+    }
+
+    /* Analyze button */
+    .btn-analyze {
+      width: 100%;
+      margin-top: 28px;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), #5b4de0);
+      border: none;
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      letter-spacing: 0.02em;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-analyze:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px var(--accent-glow);
+    }
+
+    .btn-analyze:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-analyze:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Selected files list */
+    .file-list {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .file-list::-webkit-scrollbar { width: 4px; }
+    .file-list::-webkit-scrollbar-track { background: transparent; }
+    .file-list::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 999px; }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .file-item-icon { font-size: 16px; flex-shrink: 0; }
+
+    .file-item-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+
+    .file-item-size {
+      color: var(--text-muted);
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════════════
+       PROGRESS
+    ══════════════════════════════════════════════ */
+    .progress-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 40px;
+      margin-bottom: 32px;
+      display: none;
+    }
+
+    .progress-section.visible { display: block; }
+
+    .progress-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .progress-msg {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+
+    .progress-bar-wrap {
+      background: var(--bg-input);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-light));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .progress-steps {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      transition: all var(--transition);
+    }
+
+    .progress-step.active {
+      color: var(--accent-light);
+      border-color: rgba(124,106,247,0.4);
+      background: var(--accent-soft);
+    }
+
+    .progress-step.done {
+      color: var(--green);
+      border-color: rgba(61,214,140,0.3);
+      background: var(--green-soft);
+    }
+
+    /* ══════════════════════════════════════════════
+       STATS BAR
+    ══════════════════════════════════════════════ */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    /* ══════════════════════════════════════════════
+       RESULTS SECTION
+    ══════════════════════════════════════════════ */
+    .results-section {
+      display: none;
+    }
+
+    .results-section.visible { display: block; }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: gap;
+    }
+
+    .results-title {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .btn-reset {
+      padding: 8px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-reset:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    /* Tabs */
+    .result-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+
+    .result-tab {
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .result-tab:hover { color: var(--text-primary); }
+
+    .result-tab.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    .tab-badge {
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      padding: 1px 7px;
+      font-size: 11px;
+    }
+
+    .result-tab:not(.active) .tab-badge {
+      background: var(--border);
+      color: var(--text-secondary);
+    }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ══════════════════════════════════════════════
+       MATCH CARDS
+    ══════════════════════════════════════════════ */
+    .match-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .match-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+
+    .match-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-1px);
+    }
+
+    .match-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .match-type-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+
+    .match-type-badge.duplicate {
+      background: var(--red-soft);
+      color: var(--red);
+      border: 1px solid rgba(242,87,87,0.3);
+    }
+
+    .match-type-badge.partial {
+      background: var(--yellow-soft);
+      color: var(--yellow);
+      border: 1px solid rgba(245,200,66,0.3);
+    }
+
+    .similarity-chip {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--green);
+    }
+
+    .match-card-body {
+      padding: 20px;
+    }
+
+    /* Video pair comparison */
+    .video-pair {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .video-thumb-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .thumb-wrap {
+      position: relative;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 16/9;
+    }
+
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-wrap .no-thumb {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      background: var(--bg-input);
+      color: var(--text-muted);
+    }
+
+    .video-meta { font-size: 12px; color: var(--text-secondary); }
+    .video-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    /* Connector arrow */
+    .pair-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+    }
+
+    .connector-line {
+      width: 2px;
+      height: 20px;
+      background: var(--border-bright);
+      border-radius: 999px;
+    }
+
+    .connector-icon {
+      font-size: 20px;
+      color: var(--accent-light);
+    }
+
+    /* Partial match segment info */
+    .segment-info {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .segment-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--yellow);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .segment-time {
+      font-size: 13px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    /* Hamming info */
+    .hamming-info {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hamming-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: var(--bg-input);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .hamming-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green), var(--accent));
+    }
+
+    .hamming-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ══════════════════════════════════════════════
+       VIDEO GRID
+    ══════════════════════════════════════════════ */
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .video-grid-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+
+    .video-grid-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-2px);
+    }
+
+    .video-grid-thumb {
+      aspect-ratio: 16/9;
+      background: #000;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .video-grid-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-grid-thumb .no-thumb {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: var(--text-muted);
+    }
+
+    .duration-badge {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    .video-grid-info {
+      padding: 12px;
+    }
+
+    .video-grid-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .video-grid-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .video-status-dot {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.5);
+    }
+
+    .status-duplicate { background: var(--red); }
+    .status-partial   { background: var(--yellow); }
+    .status-unique    { background: var(--green); }
+
+    /* ══════════════════════════════════════════════
+       EMPTY STATES
+    ══════════════════════════════════════════════ */
+    .empty-state {
+      text-align: center;
+      padding: 60px 32px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .empty-state-desc { font-size: 13px; }
+
+    /* ══════════════════════════════════════════════
+       ERRORS
+    ══════════════════════════════════════════════ */
+    .error-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .error-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--red-soft);
+      border: 1px solid rgba(242,87,87,0.25);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+    }
+
+    .error-file { color: var(--text-primary); font-weight: 600; }
+    .error-msg  { color: var(--red); }
+
+    /* ══════════════════════════════════════════════
+       UTILITY
+    ══════════════════════════════════════════════ */
+    .hidden { display: none !important; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 999px; }
+
+    /* ══════════════════════════════════════════════
+       ANIMATIONS
+    ══════════════════════════════════════════════ */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-in {
+      animation: fadeInUp 0.4s ease forwards;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+
+    /* ══════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      .video-pair {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .pair-connector { display: none; }
+      .upload-section { padding: 24px 16px; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ───────────────────────────────────────────
+       HEADER
+  ─────────────────────────────────────────── -->
+  <header class="header animate-in">
+    <div class="header-badge">
+      <span>⚡</span> Powered by Perceptual Hashing
+    </div>
+    <h1>Duplicate Video Detector</h1>
+    <p>Find exact duplicates and videos that are segments of longer videos — even with different filenames or re-encodings.</p>
+  </header>
+
+  <!-- ───────────────────────────────────────────
+       HOW IT WORKS
+  ─────────────────────────────────────────── -->
+  <div class="concepts animate-in">
+    <div class="concept-card">
+      <div class="concept-icon">🎞️</div>
+      <div class="concept-title">Frame Sampling</div>
+      <div class="concept-desc">Each video is sampled at 1 frame/sec, creating a manageable snapshot sequence.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon">🔢</div>
+      <div class="concept-title">pHash Fingerprint</div>
+      <div class="concept-desc">Each frame gets a 64-bit perceptual hash via DCT. Similar frames → similar hashes (low Hamming distance).</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon">🔴</div>
+      <div class="concept-title">Duplicate Detection</div>
+      <div class="concept-desc">Videos with similar lengths are compared hash-by-hash. Low avg distance = duplicate, even if re-encoded.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon">🟡</div>
+      <div class="concept-title">Partial Match (Sliding Window)</div>
+      <div class="concept-desc">Short video's hash array is slid across the longer video's array to find the best-matching segment.</div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────────────────────────
+       UPLOAD SECTION
+  ─────────────────────────────────────────── -->
+  <div class="upload-section animate-in" id="uploadSection">
+    <div class="section-title">
+      <span>📁</span> Select Videos
+    </div>
+    <div class="section-sub">Choose a folder or individual video files to analyze</div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">🎬</div>
+      <div class="drop-title">Drop video files here or click to browse</div>
+      <div class="drop-hint">Supports MP4, AVI, MOV, MKV, WMV, FLV, WebM · Any number of files</div>
+      <button type="button" style="
+        padding: 10px 24px;
+        background: var(--accent-soft);
+        border: 1px solid rgba(124,106,247,0.4);
+        border-radius: var(--radius-sm);
+        color: var(--accent-light);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        z-index: 1;
+      ">Browse Files</button>
+      <input type="file" id="fileInput" multiple accept="video/*" />
+    </div>
+
+    <!-- File list -->
+    <div class="file-list" id="fileList"></div>
+
+    <!-- Settings -->
+    <div class="settings-row">
+      <div class="setting-group">
+        <label class="setting-label">
+          Sample Rate
+          <span class="tooltip-icon" title="Frames analyzed per second. Higher = more accurate but slower.">?</span>
+        </label>
+        <div class="setting-control">
+          <input type="range" id="sampleFps" min="0.5" max="3" step="0.5" value="1" />
+          <span class="range-value" id="sampleFpsVal">1 fps</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">
+          Duplicate Sensitivity
+          <span class="tooltip-icon" title="Max Hamming distance (out of 64 bits) for exact duplicates. Lower = stricter.">?</span>
+        </label>
+        <div class="setting-control">
+          <input type="range" id="dupThreshold" min="2" max="20" step="1" value="8" />
+          <span class="range-value" id="dupThresholdVal">8 bits</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">
+          Partial Sensitivity
+          <span class="tooltip-icon" title="Max Hamming distance for partial video matching. Lower = stricter.">?</span>
+        </label>
+        <div class="setting-control">
+          <input type="range" id="partialThreshold" min="2" max="20" step="1" value="8" />
+          <span class="range-value" id="partialThresholdVal">8 bits</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analyze button -->
+    <button class="btn-analyze" id="analyzeBtn" disabled>
+      <span>🔍</span> Analyze Videos
+    </button>
+  </div>
+
+  <!-- ───────────────────────────────────────────
+       PROGRESS
+  ─────────────────────────────────────────── -->
+  <div class="progress-section" id="progressSection">
+    <div class="section-title"><span class="spin">⚙️</span>&nbsp; Analyzing…</div>
+    <div class="progress-msg" id="progressMsg">Preparing…</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+    <div class="progress-steps">
+      <div class="progress-step active" id="step1">📤 Uploading</div>
+      <div class="progress-step" id="step2">🔢 Extracting Hashes</div>
+      <div class="progress-step" id="step3">🔍 Comparing Pairs</div>
+      <div class="progress-step" id="step4">✅ Done</div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────────────────────────
+       RESULTS
+  ─────────────────────────────────────────── -->
+  <div class="results-section" id="resultsSection">
+    <!-- Header -->
+    <div class="results-header">
+      <div class="results-title">Analysis Results</div>
+      <button class="btn-reset" id="resetBtn">↩ Analyze More</button>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="statsBar"></div>
+
+    <!-- Tabs -->
+    <div class="result-tabs">
+      <div class="result-tab active" data-tab="duplicates">
+        🔴 Duplicates <span class="tab-badge" id="dupCount">0</span>
+      </div>
+      <div class="result-tab" data-tab="partials">
+        🟡 Partial Matches <span class="tab-badge" id="partialCount">0</span>
+      </div>
+      <div class="result-tab" data-tab="all-videos">
+        🎬 All Videos <span class="tab-badge" id="allCount">0</span>
+      </div>
+      <div class="result-tab hidden" data-tab="errors" id="errorsTab">
+        ⚠️ Errors <span class="tab-badge" id="errorCount">0</span>
+      </div>
+    </div>
+
+    <!-- Duplicates panel -->
+    <div class="tab-panel active" id="panel-duplicates">
+      <div class="match-list" id="duplicatesList"></div>
+    </div>
+
+    <!-- Partials panel -->
+    <div class="tab-panel" id="panel-partials">
+      <div class="match-list" id="partialsList"></div>
+    </div>
+
+    <!-- All videos panel -->
+    <div class="tab-panel" id="panel-all-videos">
+      <div class="video-grid" id="videoGrid"></div>
+    </div>
+
+    <!-- Errors panel -->
+    <div class="tab-panel" id="panel-errors">
+      <div class="error-list" id="errorsList"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════ */
+let selectedFiles = [];
+let analysisResults = null;
+
+/* ════════════════════════════════════════════════
+   DOM REFS
+════════════════════════════════════════════════ */
+const fileInput      = document.getElementById('fileInput');
+const dropZone       = document.getElementById('dropZone');
+const fileList       = document.getElementById('fileList');
+const analyzeBtn     = document.getElementById('analyzeBtn');
+const uploadSection  = document.getElementById('uploadSection');
+const progressSection= document.getElementById('progressSection');
+const resultsSection = document.getElementById('resultsSection');
+const progressBar    = document.getElementById('progressBar');
+const progressMsg    = document.getElementById('progressMsg');
+const resetBtn       = document.getElementById('resetBtn');
+
+/* ════════════════════════════════════════════════
+   SETTINGS SLIDERS
+════════════════════════════════════════════════ */
+document.getElementById('sampleFps').addEventListener('input', e => {
+  document.getElementById('sampleFpsVal').textContent = e.target.value + ' fps';
+});
+document.getElementById('dupThreshold').addEventListener('input', e => {
+  document.getElementById('dupThresholdVal').textContent = e.target.value + ' bits';
+});
+document.getElementById('partialThreshold').addEventListener('input', e => {
+  document.getElementById('partialThresholdVal').textContent = e.target.value + ' bits';
+});
+
+/* ════════════════════════════════════════════════
+   FILE SELECTION
+════════════════════════════════════════════════ */
+fileInput.addEventListener('change', () => {
+  handleFiles(Array.from(fileInput.files));
+});
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const items = e.dataTransfer.items;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file') files.push(item.getAsFile());
+  }
+  handleFiles(files);
+});
+
+function handleFiles(files) {
+  const videoExts = /\.(mp4|avi|mov|mkv|wmv|flv|webm|m4v|mpg|mpeg)$/i;
+  const videoFiles = files.filter(f => videoExts.test(f.name));
+  selectedFiles = videoFiles;
+  renderFileList();
+  analyzeBtn.disabled = selectedFiles.length < 2;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFileList() {
+  if (selectedFiles.length === 0) {
+    fileList.innerHTML = '';
+    return;
+  }
+  fileList.innerHTML = selectedFiles.map(f => `
+    <div class="file-item">
+      <span class="file-item-icon">🎬</span>
+      <span class="file-item-name">${escapeHtml(f.name)}</span>
+      <span class="file-item-size">${formatBytes(f.size)}</span>
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════════════════════
+   ANALYZE
+════════════════════════════════════════════════ */
+analyzeBtn.addEventListener('click', runAnalysis);
+
+async function runAnalysis() {
+  if (selectedFiles.length < 2) return;
+
+  // Show progress
+  uploadSection.style.display = 'none';
+  progressSection.classList.add('visible');
+  setProgress(5, 'Uploading videos to server…');
+  setStep(1, 'active');
+
+  const formData = new FormData();
+  selectedFiles.forEach(f => formData.append('files', f));
+  formData.append('sample_fps', document.getElementById('sampleFps').value);
+  formData.append('dup_threshold', document.getElementById('dupThreshold').value);
+  formData.append('partial_threshold', document.getElementById('partialThreshold').value);
+
+  try {
+    setProgress(15, 'Sending files…');
+
+    // Simulate progress during server processing
+    let fakeProgress = 15;
+    const ticker = setInterval(() => {
+      if (fakeProgress < 85) {
+        fakeProgress += Math.random() * 3;
+        const msg = fakeProgress < 50
+          ? 'Extracting perceptual hashes from frames…'
+          : 'Running sliding-window comparison between video pairs…';
+        setProgress(fakeProgress, msg);
+        if (fakeProgress < 50) { setStep(2, 'active'); setStep(1, 'done'); }
+        else { setStep(3, 'active'); setStep(2, 'done'); }
+      }
+    }, 600);
+
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      body: formData,
+    });
+
+    clearInterval(ticker);
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.detail || 'Server error');
+    }
+
+    const data = await response.json();
+    analysisResults = data;
+
+    setProgress(100, 'Analysis complete!');
+    setStep(3, 'done');
+    setStep(4, 'active');
+
+    setTimeout(() => {
+      progressSection.classList.remove('visible');
+      renderResults(data);
+      resultsSection.classList.add('visible');
+    }, 800);
+
+  } catch (err) {
+    clearInterval?.();
+    progressSection.classList.remove('visible');
+    uploadSection.style.display = '';
+    alert('Error: ' + err.message);
+  }
+}
+
+function setProgress(pct, msg) {
+  progressBar.style.width = Math.min(100, pct).toFixed(1) + '%';
+  progressMsg.textContent = msg;
+}
+
+function setStep(num, state) {
+  const el = document.getElementById('step' + num);
+  if (!el) return;
+  el.className = 'progress-step ' + state;
+}
+
+/* ════════════════════════════════════════════════
+   RENDER RESULTS
+════════════════════════════════════════════════ */
+function renderResults(data) {
+  const { videos, duplicates, partials, errors, stats } = data;
+
+  // Build lookup: video id → video info
+  const videoMap = {};
+  videos.forEach(v => { videoMap[v.id] = v; });
+
+  // Build sets of flagged video IDs
+  const dupIds = new Set();
+  duplicates.forEach(d => { dupIds.add(d.video1); dupIds.add(d.video2); });
+  const partialIds = new Set();
+  partials.forEach(p => { partialIds.add(p.shorter_video); partialIds.add(p.longer_video); });
+
+  /* ── Stats bar ── */
+  const statsBar = document.getElementById('statsBar');
+  statsBar.innerHTML = [
+    { val: stats.total_videos,      label: 'Videos',       color: 'var(--accent-light)' },
+    { val: stats.total_pairs_checked,label:'Pairs Checked', color: 'var(--blue)' },
+    { val: stats.duplicates_found,  label: 'Duplicates',   color: 'var(--red)' },
+    { val: stats.partials_found,    label: 'Partial Clips', color: 'var(--yellow)' },
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-value" style="color:${s.color}">${s.val}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>
+  `).join('');
+
+  /* ── Counts ── */
+  document.getElementById('dupCount').textContent     = duplicates.length;
+  document.getElementById('partialCount').textContent = partials.length;
+  document.getElementById('allCount').textContent     = videos.length;
+  document.getElementById('errorCount').textContent   = errors.length;
+
+  if (errors.length > 0) {
+    document.getElementById('errorsTab').classList.remove('hidden');
+  }
+
+  /* ── Duplicates list ── */
+  const dupsList = document.getElementById('duplicatesList');
+  if (duplicates.length === 0) {
+    dupsList.innerHTML = emptyState('🎉', 'No Duplicates Found', 'All videos appear to be unique content.');
+  } else {
+    dupsList.innerHTML = duplicates.map((d, i) =>
+      renderMatchCard('duplicate', d, videoMap, i)
+    ).join('');
+  }
+
+  /* ── Partials list ── */
+  const partialsList = document.getElementById('partialsList');
+  if (partials.length === 0) {
+    partialsList.innerHTML = emptyState('✅', 'No Partial Matches Found', 'No video appears to be a segment of another.');
+  } else {
+    partialsList.innerHTML = partials.map((p, i) =>
+      renderPartialCard(p, videoMap, i)
+    ).join('');
+  }
+
+  /* ── All videos grid ── */
+  const videoGrid = document.getElementById('videoGrid');
+  videoGrid.innerHTML = videos.map(v => {
+    const isDup     = dupIds.has(v.id);
+    const isPartial = !isDup && partialIds.has(v.id);
+    const isUnique  = !isDup && !partialIds.has(v.id);
+    const dotClass  = isDup ? 'status-duplicate' : (isPartial ? 'status-partial' : 'status-unique');
+    return `
+      <div class="video-grid-card">
+        <div class="video-grid-thumb">
+          ${v.thumbnail
+            ? `<img src="data:image/jpeg;base64,${v.thumbnail}" alt="${escapeHtml(v.filename)}" loading="lazy" />`
+            : `<div class="no-thumb">🎬</div>`
+          }
+          <span class="duration-badge">${v.duration_fmt}</span>
+          <span class="video-status-dot ${dotClass}"></span>
+        </div>
+        <div class="video-grid-info">
+          <div class="video-grid-name" title="${escapeHtml(v.filename)}">${escapeHtml(v.filename)}</div>
+          <div class="video-grid-meta">${v.resolution} · ${v.hash_count} samples</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  /* ── Errors ── */
+  const errorsList = document.getElementById('errorsList');
+  errorsList.innerHTML = errors.map(e => `
+    <div class="error-item">
+      <span>⚠️</span>
+      <span class="error-file">${escapeHtml(e.file)}</span>
+      <span class="error-msg">— ${escapeHtml(e.error)}</span>
+    </div>
+  `).join('');
+}
+
+function renderMatchCard(type, match, videoMap, idx) {
+  const v1 = videoMap[match.video1] || { filename: match.video1, thumbnail: null, duration_fmt: '?', resolution: '?' };
+  const v2 = videoMap[match.video2] || { filename: match.video2, thumbnail: null, duration_fmt: '?', resolution: '?' };
+  const hamPct = Math.max(0, 100 - (match.avg_hamming / 64) * 100);
+
+  return `
+    <div class="match-card animate-in" style="animation-delay:${idx * 0.05}s">
+      <div class="match-card-header">
+        <span class="match-type-badge duplicate">🔴 Exact Duplicate</span>
+        <span class="similarity-chip">${match.similarity_pct}% match</span>
+      </div>
+      <div class="match-card-body">
+        <div class="video-pair">
+          ${videoThumbCard(v1, 'Duplicate A')}
+          <div class="pair-connector">
+            <div class="connector-line"></div>
+            <div class="connector-icon">⟺</div>
+            <div class="connector-line"></div>
+          </div>
+          ${videoThumbCard(v2, 'Duplicate B')}
+        </div>
+        <div class="hamming-info">
+          <span class="hamming-label">Avg Hamming: ${match.avg_hamming.toFixed(1)} / 64 bits</span>
+          <div class="hamming-bar-wrap">
+            <div class="hamming-bar-fill" style="width:${hamPct}%"></div>
+          </div>
+          <span class="hamming-label">${match.similarity_pct}% similar</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPartialCard(match, videoMap, idx) {
+  const shorter = videoMap[match.shorter_video] || { filename: match.shorter_video, thumbnail: null, duration_fmt: '?', resolution: '?' };
+  const longer  = videoMap[match.longer_video]  || { filename: match.longer_video,  thumbnail: null, duration_fmt: '?', resolution: '?' };
+  const hamPct  = Math.max(0, 100 - (match.avg_hamming / 64) * 100);
+  const startFmt = fmtSeconds(match.segment_start_sec);
+  const endFmt   = fmtSeconds(match.segment_end_sec);
+
+  return `
+    <div class="match-card animate-in" style="animation-delay:${idx * 0.05}s">
+      <div class="match-card-header">
+        <span class="match-type-badge partial">🟡 Partial Match</span>
+        <span class="similarity-chip">${match.similarity_pct}% match</span>
+      </div>
+      <div class="match-card-body">
+        <div class="video-pair">
+          ${videoThumbCard(shorter, 'Shorter Clip')}
+          <div class="pair-connector">
+            <div class="connector-line"></div>
+            <div class="connector-icon">⊂</div>
+            <div class="connector-line"></div>
+          </div>
+          ${videoThumbCard(longer, 'Longer Source')}
+        </div>
+        <div class="segment-info">
+          <span class="segment-label">📍 Found at</span>
+          <span class="segment-time">${startFmt} → ${endFmt}</span>
+          <span style="color:var(--text-muted);font-size:12px;">in the longer video</span>
+        </div>
+        <div class="hamming-info">
+          <span class="hamming-label">Avg Hamming: ${match.avg_hamming.toFixed(1)} / 64 bits</span>
+          <div class="hamming-bar-wrap">
+            <div class="hamming-bar-fill" style="width:${hamPct}%"></div>
+          </div>
+          <span class="hamming-label">${match.similarity_pct}% similar</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function videoThumbCard(video, role) {
+  return `
+    <div class="video-thumb-card">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:6px;">${role}</div>
+      <div class="thumb-wrap">
+        ${video.thumbnail
+          ? `<img src="data:image/jpeg;base64,${video.thumbnail}" alt="${escapeHtml(video.filename)}" loading="lazy" />`
+          : `<div class="no-thumb">🎬</div>`
+        }
+      </div>
+      <div class="video-name" title="${escapeHtml(video.filename)}">${escapeHtml(video.filename)}</div>
+      <div class="video-tags">
+        <span class="tag">⏱ ${video.duration_fmt}</span>
+        <span class="tag">📐 ${video.resolution}</span>
+      </div>
+    </div>
+  `;
+}
+
+function emptyState(icon, title, desc) {
+  return `
+    <div class="empty-state">
+      <div class="empty-state-icon">${icon}</div>
+      <div class="empty-state-title">${title}</div>
+      <div class="empty-state-desc">${desc}</div>
+    </div>
+  `;
+}
+
+/* ════════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════════ */
+document.querySelectorAll('.result-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = document.getElementById('panel-' + tab.dataset.tab);
+    if (panel) panel.classList.add('active');
+  });
+});
+
+/* ════════════════════════════════════════════════
+   RESET
+════════════════════════════════════════════════ */
+resetBtn.addEventListener('click', () => {
+  selectedFiles = [];
+  analysisResults = null;
+  fileInput.value = '';
+  fileList.innerHTML = '';
+  analyzeBtn.disabled = true;
+  resultsSection.classList.remove('visible');
+  uploadSection.style.display = '';
+  // Reset tabs
+  document.querySelectorAll('.result-tab').forEach((t, i) => {
+    t.classList.toggle('active', i === 0);
+  });
+  document.querySelectorAll('.tab-panel').forEach((p, i) => {
+    p.classList.toggle('active', i === 0);
+  });
+});
+
+/* ════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════ */
+function fmtSeconds(sec) {
+  if (sec == null) return '?';
+  const s = Math.floor(sec);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  if (h) return `${pad(h)}:${pad(m)}:${pad(r)}`;
+  return `${pad(m)}:${pad(r)}`;
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
