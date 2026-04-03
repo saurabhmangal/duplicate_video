@@ -1,1582 +1,910 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Duplicate Video Detector</title>
-  <style>
-    /* ══════════════════════════════════════════════
-       DESIGN TOKENS
-    ══════════════════════════════════════════════ */
-    :root {
-      --bg-base:       #07080f;
-      --bg-surface:    #0e1018;
-      --bg-card:       #13151f;
-      --bg-card-hover: #181b27;
-      --bg-input:      #1a1d2a;
-      --border:        #252838;
-      --border-bright: #363a55;
-
-      --accent:        #7c6af7;
-      --accent-light:  #a89af9;
-      --accent-glow:   rgba(124, 106, 247, 0.25);
-      --accent-soft:   rgba(124, 106, 247, 0.12);
-
-      --green:         #3dd68c;
-      --green-soft:    rgba(61, 214, 140, 0.12);
-      --yellow:        #f5c842;
-      --yellow-soft:   rgba(245, 200, 66, 0.12);
-      --red:           #f25757;
-      --red-soft:      rgba(242, 87, 87, 0.12);
-      --blue:          #4da6ff;
-      --blue-soft:     rgba(77, 166, 255, 0.12);
-
-      --text-primary:  #e8eaf6;
-      --text-secondary:#9198b5;
-      --text-muted:    #5c6080;
-
-      --radius-sm:     8px;
-      --radius-md:     12px;
-      --radius-lg:     18px;
-      --radius-xl:     24px;
-
-      --shadow-card:   0 4px 24px rgba(0,0,0,0.4);
-      --shadow-glow:   0 0 40px rgba(124,106,247,0.15);
-
-      --transition:    0.2s ease;
-    }
-
-    /* ══════════════════════════════════════════════
-       RESET & BASE
-    ══════════════════════════════════════════════ */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg-base);
-      color: var(--text-primary);
-      min-height: 100vh;
-      line-height: 1.6;
-    }
-
-    /* Subtle grid background */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(var(--border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.3;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ══════════════════════════════════════════════
-       LAYOUT
-    ══════════════════════════════════════════════ */
-    .app {
-      position: relative;
-      z-index: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 24px 80px;
-    }
-
-    /* ══════════════════════════════════════════════
-       HEADER
-    ══════════════════════════════════════════════ */
-    .header {
-      text-align: center;
-      margin-bottom: 48px;
-    }
-
-    .header-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--accent-soft);
-      border: 1px solid rgba(124,106,247,0.3);
-      color: var(--accent-light);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 5px 14px;
-      border-radius: 999px;
-      margin-bottom: 20px;
-    }
-
-    .header h1 {
-      font-size: clamp(28px, 5vw, 44px);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.15;
-      background: linear-gradient(135deg, #fff 30%, var(--accent-light));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 12px;
-    }
-
-    .header p {
-      color: var(--text-secondary);
-      font-size: 16px;
-      max-width: 540px;
-      margin: 0 auto;
-    }
-
-    /* ══════════════════════════════════════════════
-       CONCEPT CARDS
-    ══════════════════════════════════════════════ */
-    .concepts {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      margin-bottom: 40px;
-    }
-
-    .concept-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 20px;
-      transition: border-color var(--transition), transform var(--transition);
-    }
-
-    .concept-card:hover {
-      border-color: var(--border-bright);
-      transform: translateY(-2px);
-    }
-
-    .concept-icon {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .concept-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--accent-light);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 6px;
-    }
-
-    .concept-desc {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.55;
-    }
-
-    /* ══════════════════════════════════════════════
-       UPLOAD SECTION
-    ══════════════════════════════════════════════ */
-    .upload-section {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 40px;
-      margin-bottom: 32px;
-      box-shadow: var(--shadow-card);
-    }
-
-    .section-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .section-sub {
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 24px;
-    }
-
-    /* Drop zone */
-    .drop-zone {
-      border: 2px dashed var(--border-bright);
-      border-radius: var(--radius-lg);
-      padding: 48px 32px;
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--transition);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .drop-zone::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at center, var(--accent-soft) 0%, transparent 70%);
-      opacity: 0;
-      transition: opacity var(--transition);
-    }
-
-    .drop-zone:hover, .drop-zone.drag-over {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-
-    .drop-zone:hover::before, .drop-zone.drag-over::before {
-      opacity: 1;
-    }
-
-    .drop-icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-      filter: drop-shadow(0 0 20px var(--accent));
-    }
-
-    .drop-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 6px;
-    }
-
-    .drop-hint {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 16px;
-    }
-
-    .drop-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    /* Settings row */
-    .settings-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-top: 28px;
-    }
-
-    .setting-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .setting-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .tooltip-icon {
-      cursor: help;
-      color: var(--text-muted);
-      font-style: normal;
-      font-size: 11px;
-      background: var(--border);
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .setting-control {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    input[type="range"] {
-      flex: 1;
-      -webkit-appearance: none;
-      height: 4px;
-      background: var(--border-bright);
-      border-radius: 999px;
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      background: var(--accent);
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
-
-    .range-value {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--accent-light);
-      min-width: 40px;
-      text-align: right;
-    }
-
-    /* Analyze button */
-    .btn-analyze {
-      width: 100%;
-      margin-top: 28px;
-      padding: 16px;
-      background: linear-gradient(135deg, var(--accent), #5b4de0);
-      border: none;
-      border-radius: var(--radius-md);
-      color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      letter-spacing: 0.02em;
-      box-shadow: 0 4px 20px var(--accent-glow);
-    }
-
-    .btn-analyze:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px var(--accent-glow);
-    }
-
-    .btn-analyze:active:not(:disabled) {
-      transform: translateY(0);
-    }
-
-    .btn-analyze:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* Selected files list */
-    .file-list {
-      margin-top: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .file-list::-webkit-scrollbar { width: 4px; }
-    .file-list::-webkit-scrollbar-track { background: transparent; }
-    .file-list::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 999px; }
-
-    .file-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .file-item-icon { font-size: 16px; flex-shrink: 0; }
-
-    .file-item-name {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      color: var(--text-primary);
-    }
-
-    .file-item-size {
-      color: var(--text-muted);
-      font-size: 11px;
-      flex-shrink: 0;
-    }
-
-    /* ══════════════════════════════════════════════
-       PROGRESS
-    ══════════════════════════════════════════════ */
-    .progress-section {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 40px;
-      margin-bottom: 32px;
-      display: none;
-    }
-
-    .progress-section.visible { display: block; }
-
-    .progress-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-
-    .progress-msg {
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 20px;
-    }
-
-    .progress-bar-wrap {
-      background: var(--bg-input);
-      border-radius: 999px;
-      height: 8px;
-      overflow: hidden;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-light));
-      border-radius: 999px;
-      transition: width 0.4s ease;
-      box-shadow: 0 0 12px var(--accent-glow);
-    }
-
-    .progress-steps {
-      display: flex;
-      gap: 8px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-    }
-
-    .progress-step {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--text-muted);
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      transition: all var(--transition);
-    }
-
-    .progress-step.active {
-      color: var(--accent-light);
-      border-color: rgba(124,106,247,0.4);
-      background: var(--accent-soft);
-    }
-
-    .progress-step.done {
-      color: var(--green);
-      border-color: rgba(61,214,140,0.3);
-      background: var(--green-soft);
-    }
-
-    /* ══════════════════════════════════════════════
-       STATS BAR
-    ══════════════════════════════════════════════ */
-    .stats-bar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-
-    .stat-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 20px;
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 32px;
-      font-weight: 800;
-      line-height: 1;
-      margin-bottom: 6px;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-weight: 600;
-    }
-
-    /* ══════════════════════════════════════════════
-       RESULTS SECTION
-    ══════════════════════════════════════════════ */
-    .results-section {
-      display: none;
-    }
-
-    .results-section.visible { display: block; }
-
-    .results-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 24px;
-      flex-wrap: gap;
-    }
-
-    .results-title {
-      font-size: 22px;
-      font-weight: 800;
-    }
-
-    .btn-reset {
-      padding: 8px 16px;
-      background: var(--bg-input);
-      border: 1px solid var(--border-bright);
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      font-size: 13px;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn-reset:hover {
-      background: var(--bg-card-hover);
-      color: var(--text-primary);
-    }
-
-    /* Tabs */
-    .result-tabs {
-      display: flex;
-      gap: 4px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 4px;
-      margin-bottom: 24px;
-      width: fit-content;
-    }
-
-    .result-tab {
-      padding: 8px 20px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      color: var(--text-muted);
-      transition: all var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .result-tab:hover { color: var(--text-primary); }
-
-    .result-tab.active {
-      background: var(--accent);
-      color: #fff;
-      box-shadow: 0 2px 12px var(--accent-glow);
-    }
-
-    .tab-badge {
-      background: rgba(255,255,255,0.2);
-      border-radius: 999px;
-      padding: 1px 7px;
-      font-size: 11px;
-    }
-
-    .result-tab:not(.active) .tab-badge {
-      background: var(--border);
-      color: var(--text-secondary);
-    }
-
-    /* Tab panels */
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    /* ══════════════════════════════════════════════
-       MATCH CARDS
-    ══════════════════════════════════════════════ */
-    .match-list {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .match-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      transition: border-color var(--transition), transform var(--transition);
-    }
-
-    .match-card:hover {
-      border-color: var(--border-bright);
-      transform: translateY(-1px);
-    }
-
-    .match-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .match-type-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      padding: 4px 12px;
-      border-radius: 999px;
-    }
-
-    .match-type-badge.duplicate {
-      background: var(--red-soft);
-      color: var(--red);
-      border: 1px solid rgba(242,87,87,0.3);
-    }
-
-    .match-type-badge.partial {
-      background: var(--yellow-soft);
-      color: var(--yellow);
-      border: 1px solid rgba(245,200,66,0.3);
-    }
-
-    .similarity-chip {
-      font-size: 14px;
-      font-weight: 800;
-      color: var(--green);
-    }
-
-    .match-card-body {
-      padding: 20px;
-    }
-
-    /* Video pair comparison */
-    .video-pair {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      gap: 16px;
-      align-items: center;
-    }
-
-    .video-thumb-card {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .thumb-wrap {
-      position: relative;
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      background: #000;
-      aspect-ratio: 16/9;
-    }
-
-    .thumb-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .thumb-wrap .no-thumb {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      background: var(--bg-input);
-      color: var(--text-muted);
-    }
-
-    .video-meta { font-size: 12px; color: var(--text-secondary); }
-    .video-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .video-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 4px;
-    }
-
-    .tag {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-    }
-
-    /* Connector arrow */
-    .pair-connector {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-muted);
-    }
-
-    .connector-line {
-      width: 2px;
-      height: 20px;
-      background: var(--border-bright);
-      border-radius: 999px;
-    }
-
-    .connector-icon {
-      font-size: 20px;
-      color: var(--accent-light);
-    }
-
-    /* Partial match segment info */
-    .segment-info {
-      margin-top: 16px;
-      padding: 12px 16px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .segment-label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--yellow);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .segment-time {
-      font-size: 13px;
-      color: var(--text-primary);
-      font-family: 'JetBrains Mono', 'Courier New', monospace;
-    }
-
-    /* Hamming info */
-    .hamming-info {
-      margin-top: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .hamming-bar-wrap {
-      flex: 1;
-      height: 6px;
-      background: var(--bg-input);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-
-    .hamming-bar-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--green), var(--accent));
-    }
-
-    .hamming-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
-
-    /* ══════════════════════════════════════════════
-       VIDEO GRID
-    ══════════════════════════════════════════════ */
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 16px;
-    }
-
-    .video-grid-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      transition: border-color var(--transition), transform var(--transition);
-    }
-
-    .video-grid-card:hover {
-      border-color: var(--border-bright);
-      transform: translateY(-2px);
-    }
-
-    .video-grid-thumb {
-      aspect-ratio: 16/9;
-      background: #000;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .video-grid-thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .video-grid-thumb .no-thumb {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      color: var(--text-muted);
-    }
-
-    .duration-badge {
-      position: absolute;
-      bottom: 6px;
-      right: 6px;
-      background: rgba(0,0,0,0.8);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: 'JetBrains Mono', 'Courier New', monospace;
-    }
-
-    .video-grid-info {
-      padding: 12px;
-    }
-
-    .video-grid-name {
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 4px;
-    }
-
-    .video-grid-meta {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .video-status-dot {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      border: 2px solid rgba(0,0,0,0.5);
-    }
-
-    .status-duplicate { background: var(--red); }
-    .status-partial   { background: var(--yellow); }
-    .status-unique    { background: var(--green); }
-
-    /* ══════════════════════════════════════════════
-       EMPTY STATES
-    ══════════════════════════════════════════════ */
-    .empty-state {
-      text-align: center;
-      padding: 60px 32px;
-      color: var(--text-muted);
-    }
-
-    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
-    .empty-state-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
-    .empty-state-desc { font-size: 13px; }
-
-    /* ══════════════════════════════════════════════
-       ERRORS
-    ══════════════════════════════════════════════ */
-    .error-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .error-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      background: var(--red-soft);
-      border: 1px solid rgba(242,87,87,0.25);
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-    }
-
-    .error-file { color: var(--text-primary); font-weight: 600; }
-    .error-msg  { color: var(--red); }
-
-    /* ══════════════════════════════════════════════
-       UTILITY
-    ══════════════════════════════════════════════ */
-    .hidden { display: none !important; }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 999px; }
-
-    /* ══════════════════════════════════════════════
-       ANIMATIONS
-    ══════════════════════════════════════════════ */
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(16px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .animate-in {
-      animation: fadeInUp 0.4s ease forwards;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .spin { display: inline-block; animation: spin 1s linear infinite; }
-
-    /* ══════════════════════════════════════════════
-       RESPONSIVE
-    ══════════════════════════════════════════════ */
-    @media (max-width: 640px) {
-      .video-pair {
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      .pair-connector { display: none; }
-      .upload-section { padding: 24px 16px; }
-    }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Duplicate Video Detector</title>
+<style>
+/* ═══════════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --bg:          #07080f;
+  --surface:     #0e1018;
+  --card:        #13151f;
+  --card-hover:  #181b27;
+  --input:       #1a1d2a;
+  --border:      #252838;
+  --border-hi:   #363a55;
+
+  --accent:      #7c6af7;
+  --accent-lt:   #a89af9;
+  --accent-glow: rgba(124,106,247,.25);
+  --accent-soft: rgba(124,106,247,.12);
+
+  --green:       #3dd68c;
+  --green-soft:  rgba(61,214,140,.12);
+  --yellow:      #f5c842;
+  --yellow-soft: rgba(245,200,66,.12);
+  --red:         #f25757;
+  --red-soft:    rgba(242,87,87,.12);
+  --blue:        #4da6ff;
+  --blue-soft:   rgba(77,166,255,.12);
+
+  --txt:         #e8eaf6;
+  --txt2:        #9198b5;
+  --txt3:        #5c6080;
+
+  --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-xl: 24px;
+  --shadow: 0 4px 24px rgba(0,0,0,.4);
+  --t: .18s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;line-height:1.6}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:40px 40px;opacity:.25;pointer-events:none;z-index:0}
+
+/* ═══ LAYOUT ═══ */
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:32px 20px 80px}
+
+/* ═══ HEADER ═══ */
+.header{text-align:center;margin-bottom:40px}
+.badge{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);border:1px solid rgba(124,106,247,.3);color:var(--accent-lt);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 14px;border-radius:999px;margin-bottom:16px}
+.header h1{font-size:clamp(26px,5vw,42px);font-weight:800;letter-spacing:-.03em;background:linear-gradient(135deg,#fff 30%,var(--accent-lt));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px}
+.header p{color:var(--txt2);font-size:15px;max-width:520px;margin:0 auto}
+
+/* ═══ HOW IT WORKS CHIPS ═══ */
+.how-chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:36px}
+.chip{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--txt2);transition:border-color var(--t)}
+.chip:hover{border-color:var(--border-hi)}
+.chip-icon{font-size:15px}
+
+/* ═══ PANEL (card wrapper) ═══ */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);padding:32px;margin-bottom:24px;box-shadow:var(--shadow)}
+.panel-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.panel-sub{font-size:13px;color:var(--txt2);margin-bottom:22px}
+
+/* ═══ MODE TOGGLE ═══ */
+.mode-toggle{display:flex;gap:4px;background:var(--input);border:1px solid var(--border);border-radius:var(--r-md);padding:4px;margin-bottom:24px;width:fit-content}
+.mode-btn{padding:8px 22px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;color:var(--txt3);transition:all var(--t);display:flex;align-items:center;gap:7px;white-space:nowrap}
+.mode-btn:hover{color:var(--txt)}
+.mode-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 12px var(--accent-glow)}
+
+/* ═══ FOLDER PATH INPUT ═══ */
+.folder-input-wrap{display:flex;gap:10px}
+.folder-input{flex:1;background:var(--input);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 16px;color:var(--txt);font-size:14px;outline:none;transition:border-color var(--t)}
+.folder-input::placeholder{color:var(--txt3)}
+.folder-input:focus{border-color:var(--accent)}
+.btn-scan{padding:12px 24px;background:var(--accent-soft);border:1px solid rgba(124,106,247,.4);border-radius:var(--r-md);color:var(--accent-lt);font-size:14px;font-weight:700;cursor:pointer;transition:all var(--t);white-space:nowrap}
+.btn-scan:hover{background:rgba(124,106,247,.2)}
+.folder-hint{font-size:12px;color:var(--txt3);margin-top:8px}
+
+/* ═══ DROP ZONE ═══ */
+.drop-zone{border:2px dashed var(--border-hi);border-radius:var(--r-lg);padding:40px 24px;text-align:center;cursor:pointer;transition:all var(--t);position:relative;overflow:hidden}
+.drop-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,var(--accent-soft),transparent 70%);opacity:0;transition:opacity var(--t)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-soft)}
+.drop-zone:hover::before,.drop-zone.drag-over::before{opacity:1}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-icon{font-size:36px;margin-bottom:10px}
+.drop-title{font-size:15px;font-weight:600;margin-bottom:5px}
+.drop-hint{font-size:12px;color:var(--txt3);margin-bottom:14px}
+.btn-browse{padding:9px 22px;background:var(--accent-soft);border:1px solid rgba(124,106,247,.4);border-radius:var(--r-sm);color:var(--accent-lt);font-size:13px;font-weight:600;cursor:pointer;position:relative;z-index:1;transition:all var(--t)}
+.btn-browse:hover{background:rgba(124,106,247,.2)}
+
+/* ═══ FILE LIST ═══ */
+.file-list{margin-top:16px;display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto}
+.file-list::-webkit-scrollbar{width:4px}
+.file-list::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:999px}
+.file-item{display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--input);border:1px solid var(--border);border-radius:var(--r-sm);font-size:13px}
+.file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-size{color:var(--txt3);font-size:11px;flex-shrink:0}
+
+/* ═══ SETTINGS ═══ */
+.settings-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:24px}
+.setting-group{display:flex;flex-direction:column;gap:7px}
+.setting-label{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px}
+.tip{cursor:help;background:var(--border);border-radius:50%;width:15px;height:15px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--txt3)}
+.slider-row{display:flex;align-items:center;gap:10px}
+input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-hi);border-radius:999px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 8px var(--accent-glow)}
+.slider-val{font-size:13px;font-weight:600;color:var(--accent-lt);min-width:46px;text-align:right}
+
+/* ═══ ANALYZE BUTTON ═══ */
+.btn-analyze{width:100%;margin-top:24px;padding:15px;background:linear-gradient(135deg,var(--accent),#5b4de0);border:none;border-radius:var(--r-md);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px var(--accent-glow)}
+.btn-analyze:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
+.btn-analyze:disabled{opacity:.45;cursor:not-allowed}
+
+/* ═══ PROGRESS ═══ */
+.progress-panel{display:none}
+.progress-panel.visible{display:block}
+.progress-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.progress-pct{font-size:28px;font-weight:800;color:var(--accent-lt)}
+.progress-msg{font-size:13px;color:var(--txt2);margin-bottom:12px;min-height:20px}
+.pbar-wrap{background:var(--input);border-radius:999px;height:8px;overflow:hidden;margin-bottom:16px}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-lt));border-radius:999px;transition:width .4s ease;box-shadow:0 0 12px var(--accent-glow)}
+.step-row{display:flex;flex-wrap:wrap;gap:8px}
+.step{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;color:var(--txt3);background:var(--input);border:1px solid var(--border);transition:all var(--t)}
+.step.active{color:var(--accent-lt);border-color:rgba(124,106,247,.4);background:var(--accent-soft)}
+.step.done{color:var(--green);border-color:rgba(61,214,140,.3);background:var(--green-soft)}
+
+/* ═══ STATS BAR ═══ */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:18px;text-align:center}
+.stat-val{font-size:30px;font-weight:800;line-height:1;margin-bottom:5px}
+.stat-label{font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+
+/* ═══ RESULTS ═══ */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+.results-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.results-title{font-size:22px;font-weight:800}
+.results-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-sm{padding:7px 14px;background:var(--input);border:1px solid var(--border-hi);border-radius:var(--r-sm);color:var(--txt2);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--t);display:flex;align-items:center;gap:5px}
+.btn-sm:hover{background:var(--card-hover);color:var(--txt)}
+.btn-sm.green{border-color:rgba(61,214,140,.4);color:var(--green);background:var(--green-soft)}
+.btn-sm.green:hover{background:rgba(61,214,140,.2)}
+.btn-sm.blue{border-color:rgba(77,166,255,.4);color:var(--blue);background:var(--blue-soft)}
+.btn-sm.blue:hover{background:rgba(77,166,255,.2)}
+
+/* ═══ TABS ═══ */
+.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:4px;margin-bottom:22px;width:fit-content;flex-wrap:wrap}
+.tab{padding:7px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;color:var(--txt3);transition:all var(--t);display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--txt)}
+.tab.active{background:var(--accent);color:#fff;box-shadow:0 2px 12px var(--accent-glow)}
+.tab-badge{background:rgba(255,255,255,.2);border-radius:999px;padding:1px 7px;font-size:11px}
+.tab:not(.active) .tab-badge{background:var(--border);color:var(--txt2)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ═══ MATCH CARDS ═══ */
+.match-list{display:flex;flex-direction:column;gap:14px}
+.match-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:border-color var(--t),transform var(--t)}
+.match-card:hover{border-color:var(--border-hi);transform:translateY(-1px)}
+.match-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.type-badge{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:4px 12px;border-radius:999px}
+.type-badge.dup{background:var(--red-soft);color:var(--red);border:1px solid rgba(242,87,87,.3)}
+.type-badge.partial{background:var(--yellow-soft);color:var(--yellow);border:1px solid rgba(245,200,66,.3)}
+.match-head-right{display:flex;align-items:center;gap:12px}
+.sim-chip{font-size:14px;font-weight:800;color:var(--green)}
+.btn-delete-match{padding:5px 12px;background:var(--red-soft);border:1px solid rgba(242,87,87,.3);border-radius:var(--r-sm);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;transition:all var(--t)}
+.btn-delete-match:hover{background:rgba(242,87,87,.25)}
+.match-body{padding:18px}
+
+/* ═══ VIDEO PAIR ═══ */
+.video-pair{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center}
+.vcard{display:flex;flex-direction:column;gap:8px}
+.vcard-role{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3)}
+.thumb-wrap{position:relative;border-radius:var(--r-sm);overflow:hidden;background:#000;aspect-ratio:16/9;cursor:pointer}
+.thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.thumb-wrap:hover img{transform:scale(1.04)}
+.thumb-wrap .no-thumb{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--input);color:var(--txt3)}
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .2s}
+.thumb-wrap:hover .play-overlay{opacity:1}
+.play-circle{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:18px}
+.vcard-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vcard-tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--input);border:1px solid var(--border);color:var(--txt3)}
+.connector{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--txt3)}
+.conn-line{width:2px;height:18px;background:var(--border-hi);border-radius:999px}
+.conn-icon{font-size:18px;color:var(--accent-lt)}
+.segment-box{margin-top:14px;padding:11px 14px;background:var(--input);border:1px solid var(--border);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.seg-label{font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.06em}
+.seg-time{font-size:13px;font-family:'JetBrains Mono','Courier New',monospace}
+.ham-row{margin-top:10px;display:flex;align-items:center;gap:8px}
+.ham-bar-wrap{flex:1;height:5px;background:var(--input);border-radius:999px;overflow:hidden}
+.ham-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--accent));border-radius:999px}
+.ham-label{font-size:11px;color:var(--txt3);white-space:nowrap}
+
+/* ═══ VIDEO GRID ═══ */
+.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.vgcard{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;transition:border-color var(--t),transform var(--t);cursor:pointer}
+.vgcard:hover{border-color:var(--border-hi);transform:translateY(-2px)}
+.vgthumb{aspect-ratio:16/9;background:#000;position:relative;overflow:hidden}
+.vgthumb img{width:100%;height:100%;object-fit:cover}
+.vgthumb .no-thumb{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--txt3)}
+.dur-badge{position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,.8);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:monospace}
+.status-dot{position:absolute;top:7px;left:7px;width:9px;height:9px;border-radius:50%;border:2px solid rgba(0,0,0,.5)}
+.s-dup{background:var(--red)} .s-part{background:var(--yellow)} .s-ok{background:var(--green)}
+.vginfo{padding:10px 12px}
+.vgname{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.vgmeta{font-size:11px;color:var(--txt3)}
+
+/* ═══ EMPTY STATE ═══ */
+.empty{text-align:center;padding:52px 24px;color:var(--txt3)}
+.empty-icon{font-size:44px;margin-bottom:10px}
+.empty-title{font-size:15px;font-weight:600;color:var(--txt2);margin-bottom:5px}
+.empty-desc{font-size:13px}
+
+/* ═══ ERRORS ═══ */
+.err-list{display:flex;flex-direction:column;gap:8px}
+.err-item{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--red-soft);border:1px solid rgba(242,87,87,.25);border-radius:var(--r-sm);font-size:13px}
+.err-file{font-weight:600}
+.err-msg{color:var(--red)}
+
+/* ═══ MODAL (video preview) ═══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--card);border:1px solid var(--border-hi);border-radius:var(--r-xl);overflow:hidden;width:100%;max-width:900px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%}
+.modal-close{width:32px;height:32px;border-radius:50%;background:var(--input);border:1px solid var(--border);color:var(--txt2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all var(--t);flex-shrink:0}
+.modal-close:hover{background:var(--red-soft);color:var(--red);border-color:rgba(242,87,87,.3)}
+.modal-video{width:100%;aspect-ratio:16/9;background:#000;display:block}
+.modal-footer{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.modal-meta{font-size:12px;color:var(--txt2)}
+
+/* ═══ DELETE TOAST ═══ */
+.delete-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border-hi);border-radius:var(--r-xl);padding:12px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:900;transition:all .3s;white-space:nowrap}
+.delete-bar.hidden{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(20px)}
+.del-count{font-size:13px;font-weight:600}
+.btn-del-confirm{padding:8px 18px;background:var(--red);border:none;border-radius:var(--r-sm);color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:opacity var(--t)}
+.btn-del-confirm:hover{opacity:.85}
+.btn-del-cancel{padding:8px 14px;background:var(--input);border:1px solid var(--border-hi);border-radius:var(--r-sm);color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;transition:all var(--t)}
+.btn-del-cancel:hover{color:var(--txt)}
+
+/* ═══ MISC ═══ */
+.hidden{display:none!important}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.anim{animation:fadeUp .35s ease forwards}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:999px}
+@media(max-width:600px){
+  .video-pair{grid-template-columns:1fr}
+  .connector{display:none}
+  .panel{padding:20px 14px}
+}
+</style>
 </head>
-
 <body>
 <div class="app">
 
-  <!-- ───────────────────────────────────────────
-       HEADER
-  ─────────────────────────────────────────── -->
-  <header class="header animate-in">
-    <div class="header-badge">
-      <span>⚡</span> Powered by Perceptual Hashing
-    </div>
-    <h1>Duplicate Video Detector</h1>
-    <p>Find exact duplicates and videos that are segments of longer videos — even with different filenames or re-encodings.</p>
-  </header>
+<!-- ── HEADER ── -->
+<header class="header anim">
+  <div class="badge">⚡ Perceptual Hashing + Sliding Window</div>
+  <h1>Duplicate Video Detector</h1>
+  <p>Find exact duplicates & partial clips — even with different filenames or re-encodings.</p>
+</header>
 
-  <!-- ───────────────────────────────────────────
-       HOW IT WORKS
-  ─────────────────────────────────────────── -->
-  <div class="concepts animate-in">
-    <div class="concept-card">
-      <div class="concept-icon">🎞️</div>
-      <div class="concept-title">Frame Sampling</div>
-      <div class="concept-desc">Each video is sampled at 1 frame/sec, creating a manageable snapshot sequence.</div>
-    </div>
-    <div class="concept-card">
-      <div class="concept-icon">🔢</div>
-      <div class="concept-title">pHash Fingerprint</div>
-      <div class="concept-desc">Each frame gets a 64-bit perceptual hash via DCT. Similar frames → similar hashes (low Hamming distance).</div>
-    </div>
-    <div class="concept-card">
-      <div class="concept-icon">🔴</div>
-      <div class="concept-title">Duplicate Detection</div>
-      <div class="concept-desc">Videos with similar lengths are compared hash-by-hash. Low avg distance = duplicate, even if re-encoded.</div>
-    </div>
-    <div class="concept-card">
-      <div class="concept-icon">🟡</div>
-      <div class="concept-title">Partial Match (Sliding Window)</div>
-      <div class="concept-desc">Short video's hash array is slid across the longer video's array to find the best-matching segment.</div>
-    </div>
+<!-- ── HOW IT WORKS ── -->
+<div class="how-chips anim">
+  <div class="chip"><span class="chip-icon">🎞️</span> Frame sampling @ 1 fps</div>
+  <div class="chip"><span class="chip-icon">🔢</span> pHash (64-bit DCT)</div>
+  <div class="chip"><span class="chip-icon">🔴</span> Duplicate: avg Hamming ≤ threshold</div>
+  <div class="chip"><span class="chip-icon">🟡</span> Partial: sliding window search</div>
+  <div class="chip"><span class="chip-icon">⚡</span> Parallel extraction</div>
+</div>
+
+<!-- ── INPUT PANEL ── -->
+<div class="panel anim" id="inputPanel">
+  <div class="panel-title">📂 Select Videos</div>
+  <div class="panel-sub">Choose a local folder path (recommended) or upload individual files</div>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <div class="mode-btn active" id="btnModeFolder" onclick="setMode('folder')">📁 Folder Path</div>
+    <div class="mode-btn"        id="btnModeUpload" onclick="setMode('upload')">📤 Upload Files</div>
   </div>
 
-  <!-- ───────────────────────────────────────────
-       UPLOAD SECTION
-  ─────────────────────────────────────────── -->
-  <div class="upload-section animate-in" id="uploadSection">
-    <div class="section-title">
-      <span>📁</span> Select Videos
+  <!-- Folder mode -->
+  <div id="folderMode">
+    <div class="folder-input-wrap">
+      <input class="folder-input" id="folderPathInput" type="text"
+             placeholder="e.g. C:\Users\saura\Videos\Movies" />
+      <button class="btn-scan" onclick="scanFolder()">🔍 Scan</button>
     </div>
-    <div class="section-sub">Choose a folder or individual video files to analyze</div>
+    <div class="folder-hint" id="folderHint">Enter the full path to your videos folder and click Scan</div>
+  </div>
 
-    <!-- Drop Zone -->
+  <!-- Upload mode -->
+  <div id="uploadMode" class="hidden">
     <div class="drop-zone" id="dropZone">
       <div class="drop-icon">🎬</div>
       <div class="drop-title">Drop video files here or click to browse</div>
-      <div class="drop-hint">Supports MP4, AVI, MOV, MKV, WMV, FLV, WebM · Any number of files</div>
-      <button type="button" style="
-        padding: 10px 24px;
-        background: var(--accent-soft);
-        border: 1px solid rgba(124,106,247,0.4);
-        border-radius: var(--radius-sm);
-        color: var(--accent-light);
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        position: relative;
-        z-index: 1;
-      ">Browse Files</button>
-      <input type="file" id="fileInput" multiple accept="video/*" />
+      <div class="drop-hint">MP4, AVI, MOV, MKV, WMV, FLV, WebM</div>
+      <button class="btn-browse">Browse Files</button>
+      <input type="file" id="fileInput" multiple accept="video/*"/>
     </div>
-
-    <!-- File list -->
     <div class="file-list" id="fileList"></div>
-
-    <!-- Settings -->
-    <div class="settings-row">
-      <div class="setting-group">
-        <label class="setting-label">
-          Sample Rate
-          <span class="tooltip-icon" title="Frames analyzed per second. Higher = more accurate but slower.">?</span>
-        </label>
-        <div class="setting-control">
-          <input type="range" id="sampleFps" min="0.5" max="3" step="0.5" value="1" />
-          <span class="range-value" id="sampleFpsVal">1 fps</span>
-        </div>
-      </div>
-
-      <div class="setting-group">
-        <label class="setting-label">
-          Duplicate Sensitivity
-          <span class="tooltip-icon" title="Max Hamming distance (out of 64 bits) for exact duplicates. Lower = stricter.">?</span>
-        </label>
-        <div class="setting-control">
-          <input type="range" id="dupThreshold" min="2" max="20" step="1" value="8" />
-          <span class="range-value" id="dupThresholdVal">8 bits</span>
-        </div>
-      </div>
-
-      <div class="setting-group">
-        <label class="setting-label">
-          Partial Sensitivity
-          <span class="tooltip-icon" title="Max Hamming distance for partial video matching. Lower = stricter.">?</span>
-        </label>
-        <div class="setting-control">
-          <input type="range" id="partialThreshold" min="2" max="20" step="1" value="8" />
-          <span class="range-value" id="partialThresholdVal">8 bits</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Analyze button -->
-    <button class="btn-analyze" id="analyzeBtn" disabled>
-      <span>🔍</span> Analyze Videos
-    </button>
   </div>
 
-  <!-- ───────────────────────────────────────────
-       PROGRESS
-  ─────────────────────────────────────────── -->
-  <div class="progress-section" id="progressSection">
-    <div class="section-title"><span class="spin">⚙️</span>&nbsp; Analyzing…</div>
-    <div class="progress-msg" id="progressMsg">Preparing…</div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+  <!-- Settings -->
+  <div class="settings-row">
+    <div class="setting-group">
+      <label class="setting-label">Sample Rate <span class="tip" title="Frames/sec to analyse. Higher = more accurate but slower.">?</span></label>
+      <div class="slider-row">
+        <input type="range" id="sSampleFps" min=".5" max="3" step=".5" value="1"
+               oninput="document.getElementById('vSampleFps').textContent=this.value+' fps'"/>
+        <span class="slider-val" id="vSampleFps">1 fps</span>
+      </div>
     </div>
-    <div class="progress-steps">
-      <div class="progress-step active" id="step1">📤 Uploading</div>
-      <div class="progress-step" id="step2">🔢 Extracting Hashes</div>
-      <div class="progress-step" id="step3">🔍 Comparing Pairs</div>
-      <div class="progress-step" id="step4">✅ Done</div>
+    <div class="setting-group">
+      <label class="setting-label">Duplicate Sensitivity <span class="tip" title="Max avg Hamming distance (out of 64) to call two videos duplicates. Lower = stricter.">?</span></label>
+      <div class="slider-row">
+        <input type="range" id="sDupThr" min="2" max="20" step="1" value="8"
+               oninput="document.getElementById('vDupThr').textContent=this.value+' bits'"/>
+        <span class="slider-val" id="vDupThr">8 bits</span>
+      </div>
+    </div>
+    <div class="setting-group">
+      <label class="setting-label">Partial Sensitivity <span class="tip" title="Max avg Hamming distance for sliding-window partial match.">?</span></label>
+      <div class="slider-row">
+        <input type="range" id="sPartThr" min="2" max="20" step="1" value="8"
+               oninput="document.getElementById('vPartThr').textContent=this.value+' bits'"/>
+        <span class="slider-val" id="vPartThr">8 bits</span>
+      </div>
     </div>
   </div>
 
-  <!-- ───────────────────────────────────────────
-       RESULTS
-  ─────────────────────────────────────────── -->
-  <div class="results-section" id="resultsSection">
-    <!-- Header -->
-    <div class="results-header">
-      <div class="results-title">Analysis Results</div>
-      <button class="btn-reset" id="resetBtn">↩ Analyze More</button>
+  <button class="btn-analyze" id="btnAnalyze" disabled onclick="runAnalysis()">
+    <span>🔍</span> Analyze Videos
+  </button>
+</div>
+
+<!-- ── PROGRESS PANEL ── -->
+<div class="panel progress-panel" id="progressPanel">
+  <div class="progress-top">
+    <div>
+      <div class="panel-title"><span class="spin">⚙️</span>&nbsp; Analyzing…</div>
+      <div class="progress-msg" id="progressMsg">Initialising…</div>
     </div>
+    <div class="progress-pct" id="progressPct">0%</div>
+  </div>
+  <div class="pbar-wrap"><div class="pbar-fill" id="pbarFill" style="width:0%"></div></div>
+  <div class="step-row">
+    <div class="step" id="s1">📤 Uploading</div>
+    <div class="step" id="s2">⚡ Extracting Hashes</div>
+    <div class="step" id="s3">🔍 Comparing Pairs</div>
+    <div class="step" id="s4">✅ Done</div>
+  </div>
+</div>
 
-    <!-- Stats bar -->
-    <div class="stats-bar" id="statsBar"></div>
+<!-- ── RESULTS ── -->
+<div class="results-panel" id="resultsPanel">
 
-    <!-- Tabs -->
-    <div class="result-tabs">
-      <div class="result-tab active" data-tab="duplicates">
-        🔴 Duplicates <span class="tab-badge" id="dupCount">0</span>
-      </div>
-      <div class="result-tab" data-tab="partials">
-        🟡 Partial Matches <span class="tab-badge" id="partialCount">0</span>
-      </div>
-      <div class="result-tab" data-tab="all-videos">
-        🎬 All Videos <span class="tab-badge" id="allCount">0</span>
-      </div>
-      <div class="result-tab hidden" data-tab="errors" id="errorsTab">
-        ⚠️ Errors <span class="tab-badge" id="errorCount">0</span>
-      </div>
-    </div>
-
-    <!-- Duplicates panel -->
-    <div class="tab-panel active" id="panel-duplicates">
-      <div class="match-list" id="duplicatesList"></div>
-    </div>
-
-    <!-- Partials panel -->
-    <div class="tab-panel" id="panel-partials">
-      <div class="match-list" id="partialsList"></div>
-    </div>
-
-    <!-- All videos panel -->
-    <div class="tab-panel" id="panel-all-videos">
-      <div class="video-grid" id="videoGrid"></div>
-    </div>
-
-    <!-- Errors panel -->
-    <div class="tab-panel" id="panel-errors">
-      <div class="error-list" id="errorsList"></div>
+  <div class="results-head">
+    <div class="results-title">Analysis Results</div>
+    <div class="results-actions">
+      <button class="btn-sm green" onclick="exportJSON()">⬇ JSON</button>
+      <button class="btn-sm blue"  onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn-sm"       onclick="resetAll()">↩ New Analysis</button>
     </div>
   </div>
 
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="dups">🔴 Duplicates <span class="tab-badge" id="cntDup">0</span></div>
+    <div class="tab"        data-tab="parts">🟡 Partial Matches <span class="tab-badge" id="cntPart">0</span></div>
+    <div class="tab"        data-tab="all">🎬 All Videos <span class="tab-badge" id="cntAll">0</span></div>
+    <div class="tab hidden" data-tab="errs" id="tabErrs">⚠️ Errors <span class="tab-badge" id="cntErr">0</span></div>
+  </div>
+
+  <div class="tab-panel active" id="panel-dups"><div class="match-list" id="listDups"></div></div>
+  <div class="tab-panel"        id="panel-parts"><div class="match-list" id="listParts"></div></div>
+  <div class="tab-panel"        id="panel-all"><div class="video-grid" id="gridAll"></div></div>
+  <div class="tab-panel"        id="panel-errs"><div class="err-list" id="listErrs"></div></div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ── VIDEO PREVIEW MODAL ── -->
+<div class="modal-overlay hidden" id="videoModal" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">Video</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <video class="modal-video" id="modalVideo" controls autoplay></video>
+    <div class="modal-footer">
+      <div class="modal-meta" id="modalMeta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE BAR ── -->
+<div class="delete-bar hidden" id="deleteBar">
+  <div class="del-count" id="delCount">0 files selected</div>
+  <button class="btn-del-confirm" onclick="confirmDelete()">🗑 Delete Files</button>
+  <button class="btn-del-cancel"  onclick="clearSelection()">Cancel</button>
 </div>
 
 <script>
-/* ════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    STATE
-════════════════════════════════════════════════ */
-let selectedFiles = [];
-let analysisResults = null;
+═══════════════════════════════════════════════════ */
+let mode         = 'folder';   // 'folder' | 'upload'
+let selectedFiles= [];
+let results      = null;       // full analysis results
+let jobId        = null;
+let selectedPaths= new Set();  // paths selected for deletion
+let isFolderMode = true;       // was last analysis in folder mode?
 
-/* ════════════════════════════════════════════════
-   DOM REFS
-════════════════════════════════════════════════ */
-const fileInput      = document.getElementById('fileInput');
-const dropZone       = document.getElementById('dropZone');
-const fileList       = document.getElementById('fileList');
-const analyzeBtn     = document.getElementById('analyzeBtn');
-const uploadSection  = document.getElementById('uploadSection');
-const progressSection= document.getElementById('progressSection');
-const resultsSection = document.getElementById('resultsSection');
-const progressBar    = document.getElementById('progressBar');
-const progressMsg    = document.getElementById('progressMsg');
-const resetBtn       = document.getElementById('resetBtn');
+/* ═══════════════════════════════════════════════════
+   MODE TOGGLE
+═══════════════════════════════════════════════════ */
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnModeFolder').classList.toggle('active', m === 'folder');
+  document.getElementById('btnModeUpload').classList.toggle('active', m === 'upload');
+  document.getElementById('folderMode').classList.toggle('hidden', m !== 'folder');
+  document.getElementById('uploadMode').classList.toggle('hidden', m !== 'upload');
+  updateAnalyzeBtn();
+}
 
-/* ════════════════════════════════════════════════
-   SETTINGS SLIDERS
-════════════════════════════════════════════════ */
-document.getElementById('sampleFps').addEventListener('input', e => {
-  document.getElementById('sampleFpsVal').textContent = e.target.value + ' fps';
-});
-document.getElementById('dupThreshold').addEventListener('input', e => {
-  document.getElementById('dupThresholdVal').textContent = e.target.value + ' bits';
-});
-document.getElementById('partialThreshold').addEventListener('input', e => {
-  document.getElementById('partialThresholdVal').textContent = e.target.value + ' bits';
-});
+/* ═══════════════════════════════════════════════════
+   FOLDER MODE
+═══════════════════════════════════════════════════ */
+async function scanFolder() {
+  const path = document.getElementById('folderPathInput').value.trim();
+  if (!path) return;
+  const hint = document.getElementById('folderHint');
+  hint.textContent = 'Scanning…';
+  hint.style.color = 'var(--txt2)';
+  // We'll validate on the server during analysis; just show ready state
+  hint.textContent = `Ready to analyze: ${path}`;
+  hint.style.color = 'var(--green)';
+  updateAnalyzeBtn();
+}
 
-/* ════════════════════════════════════════════════
-   FILE SELECTION
-════════════════════════════════════════════════ */
-fileInput.addEventListener('change', () => {
-  handleFiles(Array.from(fileInput.files));
-});
-
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('drag-over');
-});
-
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
+document.getElementById('folderPathInput').addEventListener('input', () => {
+  const v = document.getElementById('folderPathInput').value.trim();
+  document.getElementById('folderHint').textContent = v
+    ? 'Click Scan to validate the folder'
+    : 'Enter the full path to your videos folder and click Scan';
+  document.getElementById('folderHint').style.color = 'var(--txt3)';
+  updateAnalyzeBtn();
 });
 
+/* ═══════════════════════════════════════════════════
+   UPLOAD MODE
+═══════════════════════════════════════════════════ */
+const fileInput = document.getElementById('fileInput');
+const dropZone  = document.getElementById('dropZone');
+
+fileInput.addEventListener('change', () => handleFiles(Array.from(fileInput.files)));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
 dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const items = e.dataTransfer.items;
-  const files = [];
-  for (const item of items) {
-    if (item.kind === 'file') files.push(item.getAsFile());
-  }
-  handleFiles(files);
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  handleFiles(Array.from(e.dataTransfer.files));
 });
 
 function handleFiles(files) {
-  const videoExts = /\.(mp4|avi|mov|mkv|wmv|flv|webm|m4v|mpg|mpeg)$/i;
-  const videoFiles = files.filter(f => videoExts.test(f.name));
-  selectedFiles = videoFiles;
+  const re = /\.(mp4|avi|mov|mkv|wmv|flv|webm|m4v|mpg|mpeg)$/i;
+  selectedFiles = files.filter(f => re.test(f.name));
   renderFileList();
-  analyzeBtn.disabled = selectedFiles.length < 2;
-}
-
-function formatBytes(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  updateAnalyzeBtn();
 }
 
 function renderFileList() {
-  if (selectedFiles.length === 0) {
-    fileList.innerHTML = '';
-    return;
-  }
-  fileList.innerHTML = selectedFiles.map(f => `
+  const el = document.getElementById('fileList');
+  el.innerHTML = selectedFiles.map(f => `
     <div class="file-item">
-      <span class="file-item-icon">🎬</span>
-      <span class="file-item-name">${escapeHtml(f.name)}</span>
-      <span class="file-item-size">${formatBytes(f.size)}</span>
-    </div>
-  `).join('');
+      <span>🎬</span>
+      <span class="file-name">${esc(f.name)}</span>
+      <span class="file-size">${fmtBytes(f.size)}</span>
+    </div>`).join('');
 }
 
-/* ════════════════════════════════════════════════
-   ANALYZE
-════════════════════════════════════════════════ */
-analyzeBtn.addEventListener('click', runAnalysis);
+function updateAnalyzeBtn() {
+  const btn = document.getElementById('btnAnalyze');
+  if (mode === 'folder') {
+    btn.disabled = !document.getElementById('folderPathInput').value.trim();
+  } else {
+    btn.disabled = selectedFiles.length < 2;
+  }
+}
 
+/* ═══════════════════════════════════════════════════
+   ANALYSIS
+═══════════════════════════════════════════════════ */
 async function runAnalysis() {
-  if (selectedFiles.length < 2) return;
-
-  // Show progress
-  uploadSection.style.display = 'none';
-  progressSection.classList.add('visible');
-  setProgress(5, 'Uploading videos to server…');
+  // Hide input, show progress
+  document.getElementById('inputPanel').style.display = 'none';
+  const pp = document.getElementById('progressPanel');
+  pp.classList.add('visible');
   setStep(1, 'active');
+  setProgress(1, 'Sending request to server…');
 
-  const formData = new FormData();
-  selectedFiles.forEach(f => formData.append('files', f));
-  formData.append('sample_fps', document.getElementById('sampleFps').value);
-  formData.append('dup_threshold', document.getElementById('dupThreshold').value);
-  formData.append('partial_threshold', document.getElementById('partialThreshold').value);
+  const sampleFps = document.getElementById('sSampleFps').value;
+  const dupThr    = document.getElementById('sDupThr').value;
+  const partThr   = document.getElementById('sPartThr').value;
 
   try {
-    setProgress(15, 'Sending files…');
+    let res, data;
 
-    // Simulate progress during server processing
-    let fakeProgress = 15;
-    const ticker = setInterval(() => {
-      if (fakeProgress < 85) {
-        fakeProgress += Math.random() * 3;
-        const msg = fakeProgress < 50
-          ? 'Extracting perceptual hashes from frames…'
-          : 'Running sliding-window comparison between video pairs…';
-        setProgress(fakeProgress, msg);
-        if (fakeProgress < 50) { setStep(2, 'active'); setStep(1, 'done'); }
-        else { setStep(3, 'active'); setStep(2, 'done'); }
-      }
-    }, 600);
+    if (mode === 'folder') {
+      isFolderMode = true;
+      const fd = new FormData();
+      fd.append('folder_path',        document.getElementById('folderPathInput').value.trim());
+      fd.append('sample_fps',         sampleFps);
+      fd.append('dup_threshold',      dupThr);
+      fd.append('partial_threshold',  partThr);
+      res  = await fetch('/api/analyze-folder', { method:'POST', body: fd });
+    } else {
+      isFolderMode = false;
+      const fd = new FormData();
+      selectedFiles.forEach(f => fd.append('files', f));
+      fd.append('sample_fps',        sampleFps);
+      fd.append('dup_threshold',     dupThr);
+      fd.append('partial_threshold', partThr);
+      setStep(1, 'active');
+      setProgress(5, 'Uploading files…');
+      res = await fetch('/api/analyze-upload', { method:'POST', body: fd });
+    }
 
-    const response = await fetch('/api/analyze', {
-      method: 'POST',
-      body: formData,
-    });
-
-    clearInterval(ticker);
-
-    if (!response.ok) {
-      const err = await response.json();
+    if (!res.ok) {
+      const err = await res.json();
       throw new Error(err.detail || 'Server error');
     }
 
-    const data = await response.json();
-    analysisResults = data;
+    data  = await res.json();
+    jobId = data.job_id;
+    setStep(1, 'done'); setStep(2, 'active');
+
+    // Connect to SSE progress stream
+    await listenProgress(jobId);
+
+    // Fetch final results
+    const rRes = await fetch(`/api/results/${jobId}`);
+    if (!rRes.ok) throw new Error('Failed to fetch results');
+    results = await rRes.json();
 
     setProgress(100, 'Analysis complete!');
-    setStep(3, 'done');
-    setStep(4, 'active');
+    setStep(3, 'done'); setStep(4, 'active');
 
     setTimeout(() => {
-      progressSection.classList.remove('visible');
-      renderResults(data);
-      resultsSection.classList.add('visible');
-    }, 800);
+      pp.classList.remove('visible');
+      renderResults(results);
+      document.getElementById('resultsPanel').classList.add('visible');
+    }, 700);
 
   } catch (err) {
-    clearInterval?.();
-    progressSection.classList.remove('visible');
-    uploadSection.style.display = '';
+    pp.classList.remove('visible');
+    document.getElementById('inputPanel').style.display = '';
     alert('Error: ' + err.message);
   }
 }
 
+function listenProgress(jid) {
+  return new Promise((resolve, reject) => {
+    const es = new EventSource(`/api/progress/${jid}`);
+    es.onmessage = e => {
+      const d = JSON.parse(e.data);
+      setProgress(d.progress, d.message);
+
+      if (d.progress < 55)      { setStep(2,'active'); }
+      else if (d.progress < 95) { setStep(2,'done'); setStep(3,'active'); }
+
+      if (d.status === 'done')  { es.close(); resolve(); }
+      if (d.status === 'error') { es.close(); reject(new Error(d.error || 'Analysis failed')); }
+    };
+    es.onerror = () => { es.close(); reject(new Error('SSE connection lost')); };
+  });
+}
+
 function setProgress(pct, msg) {
-  progressBar.style.width = Math.min(100, pct).toFixed(1) + '%';
-  progressMsg.textContent = msg;
+  document.getElementById('pbarFill').style.width  = Math.min(100,pct).toFixed(1)+'%';
+  document.getElementById('progressPct').textContent = Math.min(100,Math.round(pct))+'%';
+  document.getElementById('progressMsg').textContent = msg;
 }
 
-function setStep(num, state) {
-  const el = document.getElementById('step' + num);
-  if (!el) return;
-  el.className = 'progress-step ' + state;
+function setStep(n, state) {
+  const el = document.getElementById('s'+n);
+  if(el) el.className = 'step '+ state;
 }
 
-/* ════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    RENDER RESULTS
-════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════ */
 function renderResults(data) {
   const { videos, duplicates, partials, errors, stats } = data;
+  const vmap = Object.fromEntries(videos.map(v => [v.id, v]));
 
-  // Build lookup: video id → video info
-  const videoMap = {};
-  videos.forEach(v => { videoMap[v.id] = v; });
+  // Build flagged sets for the grid
+  const dupIds  = new Set(duplicates.flatMap(d => [d.video1, d.video2]));
+  const partIds = new Set(partials.flatMap(p => [p.shorter_video, p.longer_video]));
 
-  // Build sets of flagged video IDs
-  const dupIds = new Set();
-  duplicates.forEach(d => { dupIds.add(d.video1); dupIds.add(d.video2); });
-  const partialIds = new Set();
-  partials.forEach(p => { partialIds.add(p.shorter_video); partialIds.add(p.longer_video); });
+  // Stats
+  document.getElementById('statsBar').innerHTML = [
+    { v: stats.total_videos,       label:'Videos',        color:'var(--accent-lt)' },
+    { v: stats.total_pairs_checked,label:'Pairs Checked', color:'var(--blue)' },
+    { v: stats.duplicates_found,   label:'Duplicates',    color:'var(--red)' },
+    { v: stats.partials_found,     label:'Partial Clips', color:'var(--yellow)' },
+  ].map(s => `<div class="stat-card">
+    <div class="stat-val" style="color:${s.color}">${s.v}</div>
+    <div class="stat-label">${s.label}</div>
+  </div>`).join('');
 
-  /* ── Stats bar ── */
-  const statsBar = document.getElementById('statsBar');
-  statsBar.innerHTML = [
-    { val: stats.total_videos,      label: 'Videos',       color: 'var(--accent-light)' },
-    { val: stats.total_pairs_checked,label:'Pairs Checked', color: 'var(--blue)' },
-    { val: stats.duplicates_found,  label: 'Duplicates',   color: 'var(--red)' },
-    { val: stats.partials_found,    label: 'Partial Clips', color: 'var(--yellow)' },
-  ].map(s => `
-    <div class="stat-card">
-      <div class="stat-value" style="color:${s.color}">${s.val}</div>
-      <div class="stat-label">${s.label}</div>
-    </div>
-  `).join('');
+  // Counts
+  document.getElementById('cntDup').textContent  = duplicates.length;
+  document.getElementById('cntPart').textContent = partials.length;
+  document.getElementById('cntAll').textContent  = videos.length;
+  document.getElementById('cntErr').textContent  = errors.length;
+  if (errors.length) document.getElementById('tabErrs').classList.remove('hidden');
 
-  /* ── Counts ── */
-  document.getElementById('dupCount').textContent     = duplicates.length;
-  document.getElementById('partialCount').textContent = partials.length;
-  document.getElementById('allCount').textContent     = videos.length;
-  document.getElementById('errorCount').textContent   = errors.length;
+  // Duplicates
+  const listDups = document.getElementById('listDups');
+  listDups.innerHTML = duplicates.length
+    ? duplicates.map((d,i) => renderDupCard(d, vmap, i)).join('')
+    : emptyState('🎉','No Duplicates Found','All videos appear to have unique content.');
 
-  if (errors.length > 0) {
-    document.getElementById('errorsTab').classList.remove('hidden');
-  }
+  // Partials
+  const listParts = document.getElementById('listParts');
+  listParts.innerHTML = partials.length
+    ? partials.map((p,i) => renderPartCard(p, vmap, i)).join('')
+    : emptyState('✅','No Partial Matches Found','No video is a segment of another.');
 
-  /* ── Duplicates list ── */
-  const dupsList = document.getElementById('duplicatesList');
-  if (duplicates.length === 0) {
-    dupsList.innerHTML = emptyState('🎉', 'No Duplicates Found', 'All videos appear to be unique content.');
-  } else {
-    dupsList.innerHTML = duplicates.map((d, i) =>
-      renderMatchCard('duplicate', d, videoMap, i)
-    ).join('');
-  }
-
-  /* ── Partials list ── */
-  const partialsList = document.getElementById('partialsList');
-  if (partials.length === 0) {
-    partialsList.innerHTML = emptyState('✅', 'No Partial Matches Found', 'No video appears to be a segment of another.');
-  } else {
-    partialsList.innerHTML = partials.map((p, i) =>
-      renderPartialCard(p, videoMap, i)
-    ).join('');
-  }
-
-  /* ── All videos grid ── */
-  const videoGrid = document.getElementById('videoGrid');
-  videoGrid.innerHTML = videos.map(v => {
-    const isDup     = dupIds.has(v.id);
-    const isPartial = !isDup && partialIds.has(v.id);
-    const isUnique  = !isDup && !partialIds.has(v.id);
-    const dotClass  = isDup ? 'status-duplicate' : (isPartial ? 'status-partial' : 'status-unique');
-    return `
-      <div class="video-grid-card">
-        <div class="video-grid-thumb">
-          ${v.thumbnail
-            ? `<img src="data:image/jpeg;base64,${v.thumbnail}" alt="${escapeHtml(v.filename)}" loading="lazy" />`
-            : `<div class="no-thumb">🎬</div>`
-          }
-          <span class="duration-badge">${v.duration_fmt}</span>
-          <span class="video-status-dot ${dotClass}"></span>
-        </div>
-        <div class="video-grid-info">
-          <div class="video-grid-name" title="${escapeHtml(v.filename)}">${escapeHtml(v.filename)}</div>
-          <div class="video-grid-meta">${v.resolution} · ${v.hash_count} samples</div>
-        </div>
+  // All videos grid
+  document.getElementById('gridAll').innerHTML = videos.map(v => {
+    const cls = dupIds.has(v.id) ? 's-dup' : (partIds.has(v.id) ? 's-part' : 's-ok');
+    return `<div class="vgcard" onclick="openPreview('${esc(v.filepath)}','${esc(v.filename)}','${v.duration_fmt}','${v.resolution}')">
+      <div class="vgthumb">
+        ${v.thumbnail ? `<img src="data:image/jpeg;base64,${v.thumbnail}" loading="lazy"/>` : `<div class="no-thumb">🎬</div>`}
+        <span class="dur-badge">${v.duration_fmt}</span>
+        <span class="status-dot ${cls}"></span>
       </div>
-    `;
+      <div class="vginfo">
+        <div class="vgname" title="${esc(v.filename)}">${esc(v.filename)}</div>
+        <div class="vgmeta">${v.resolution} · ${v.hash_count} samples</div>
+      </div>
+    </div>`;
   }).join('');
 
-  /* ── Errors ── */
-  const errorsList = document.getElementById('errorsList');
-  errorsList.innerHTML = errors.map(e => `
-    <div class="error-item">
-      <span>⚠️</span>
-      <span class="error-file">${escapeHtml(e.file)}</span>
-      <span class="error-msg">— ${escapeHtml(e.error)}</span>
-    </div>
-  `).join('');
+  // Errors
+  document.getElementById('listErrs').innerHTML = errors.map(e =>
+    `<div class="err-item"><span>⚠️</span><span class="err-file">${esc(e.file)}</span><span class="err-msg">— ${esc(e.error)}</span></div>`
+  ).join('');
 }
 
-function renderMatchCard(type, match, videoMap, idx) {
-  const v1 = videoMap[match.video1] || { filename: match.video1, thumbnail: null, duration_fmt: '?', resolution: '?' };
-  const v2 = videoMap[match.video2] || { filename: match.video2, thumbnail: null, duration_fmt: '?', resolution: '?' };
-  const hamPct = Math.max(0, 100 - (match.avg_hamming / 64) * 100);
-
-  return `
-    <div class="match-card animate-in" style="animation-delay:${idx * 0.05}s">
-      <div class="match-card-header">
-        <span class="match-type-badge duplicate">🔴 Exact Duplicate</span>
-        <span class="similarity-chip">${match.similarity_pct}% match</span>
-      </div>
-      <div class="match-card-body">
-        <div class="video-pair">
-          ${videoThumbCard(v1, 'Duplicate A')}
-          <div class="pair-connector">
-            <div class="connector-line"></div>
-            <div class="connector-icon">⟺</div>
-            <div class="connector-line"></div>
-          </div>
-          ${videoThumbCard(v2, 'Duplicate B')}
-        </div>
-        <div class="hamming-info">
-          <span class="hamming-label">Avg Hamming: ${match.avg_hamming.toFixed(1)} / 64 bits</span>
-          <div class="hamming-bar-wrap">
-            <div class="hamming-bar-fill" style="width:${hamPct}%"></div>
-          </div>
-          <span class="hamming-label">${match.similarity_pct}% similar</span>
-        </div>
+/* ── Match card renderers ── */
+function renderDupCard(d, vmap, i) {
+  const v1  = vmap[d.video1] || { filename:d.video1, thumbnail:null, duration_fmt:'?', resolution:'?', filepath:'' };
+  const v2  = vmap[d.video2] || { filename:d.video2, thumbnail:null, duration_fmt:'?', resolution:'?', filepath:'' };
+  const pct = Math.max(0, 100-(d.avg_hamming/64)*100);
+  return `<div class="match-card anim" style="animation-delay:${i*.04}s">
+    <div class="match-head">
+      <span class="type-badge dup">🔴 Exact Duplicate</span>
+      <div class="match-head-right">
+        <span class="sim-chip">${d.similarity_pct}% match</span>
+        ${isFolderMode ? `
+        <button class="btn-delete-match" onclick="toggleDeletePath('${esc(v1.filepath)}','${esc(v2.filepath)}',this)">
+          🗑 Select for Deletion
+        </button>` : ''}
       </div>
     </div>
-  `;
+    <div class="match-body">
+      <div class="video-pair">
+        ${thumbCard(v1,'Duplicate A')}
+        <div class="connector"><div class="conn-line"></div><div class="conn-icon">⟺</div><div class="conn-line"></div></div>
+        ${thumbCard(v2,'Duplicate B')}
+      </div>
+      <div class="ham-row">
+        <span class="ham-label">Hamming avg: ${d.avg_hamming}/64</span>
+        <div class="ham-bar-wrap"><div class="ham-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+        <span class="ham-label">${d.similarity_pct}% similar</span>
+      </div>
+    </div>
+  </div>`;
 }
 
-function renderPartialCard(match, videoMap, idx) {
-  const shorter = videoMap[match.shorter_video] || { filename: match.shorter_video, thumbnail: null, duration_fmt: '?', resolution: '?' };
-  const longer  = videoMap[match.longer_video]  || { filename: match.longer_video,  thumbnail: null, duration_fmt: '?', resolution: '?' };
-  const hamPct  = Math.max(0, 100 - (match.avg_hamming / 64) * 100);
-  const startFmt = fmtSeconds(match.segment_start_sec);
-  const endFmt   = fmtSeconds(match.segment_end_sec);
-
-  return `
-    <div class="match-card animate-in" style="animation-delay:${idx * 0.05}s">
-      <div class="match-card-header">
-        <span class="match-type-badge partial">🟡 Partial Match</span>
-        <span class="similarity-chip">${match.similarity_pct}% match</span>
-      </div>
-      <div class="match-card-body">
-        <div class="video-pair">
-          ${videoThumbCard(shorter, 'Shorter Clip')}
-          <div class="pair-connector">
-            <div class="connector-line"></div>
-            <div class="connector-icon">⊂</div>
-            <div class="connector-line"></div>
-          </div>
-          ${videoThumbCard(longer, 'Longer Source')}
-        </div>
-        <div class="segment-info">
-          <span class="segment-label">📍 Found at</span>
-          <span class="segment-time">${startFmt} → ${endFmt}</span>
-          <span style="color:var(--text-muted);font-size:12px;">in the longer video</span>
-        </div>
-        <div class="hamming-info">
-          <span class="hamming-label">Avg Hamming: ${match.avg_hamming.toFixed(1)} / 64 bits</span>
-          <div class="hamming-bar-wrap">
-            <div class="hamming-bar-fill" style="width:${hamPct}%"></div>
-          </div>
-          <span class="hamming-label">${match.similarity_pct}% similar</span>
-        </div>
+function renderPartCard(p, vmap, i) {
+  const sh  = vmap[p.shorter_video] || { filename:p.shorter_video, thumbnail:null, duration_fmt:'?', resolution:'?', filepath:'' };
+  const lg  = vmap[p.longer_video]  || { filename:p.longer_video,  thumbnail:null, duration_fmt:'?', resolution:'?', filepath:'' };
+  const pct = Math.max(0, 100-(p.avg_hamming/64)*100);
+  return `<div class="match-card anim" style="animation-delay:${i*.04}s">
+    <div class="match-head">
+      <span class="type-badge partial">🟡 Partial Match</span>
+      <div class="match-head-right">
+        <span class="sim-chip">${p.similarity_pct}% match</span>
+        ${isFolderMode ? `
+        <button class="btn-delete-match" onclick="toggleDeletePath('${esc(sh.filepath)}','',this)">
+          🗑 Select Clip for Deletion
+        </button>` : ''}
       </div>
     </div>
-  `;
+    <div class="match-body">
+      <div class="video-pair">
+        ${thumbCard(sh,'Shorter Clip')}
+        <div class="connector"><div class="conn-line"></div><div class="conn-icon">⊂</div><div class="conn-line"></div></div>
+        ${thumbCard(lg,'Longer Source')}
+      </div>
+      <div class="segment-box">
+        <span class="seg-label">📍 Found in longer video at</span>
+        <span class="seg-time">${fmtSec(p.segment_start_sec)} → ${fmtSec(p.segment_end_sec)}</span>
+      </div>
+      <div class="ham-row">
+        <span class="ham-label">Hamming avg: ${p.avg_hamming}/64</span>
+        <div class="ham-bar-wrap"><div class="ham-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+        <span class="ham-label">${p.similarity_pct}% similar</span>
+      </div>
+    </div>
+  </div>`;
 }
 
-function videoThumbCard(video, role) {
-  return `
-    <div class="video-thumb-card">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:6px;">${role}</div>
-      <div class="thumb-wrap">
-        ${video.thumbnail
-          ? `<img src="data:image/jpeg;base64,${video.thumbnail}" alt="${escapeHtml(video.filename)}" loading="lazy" />`
-          : `<div class="no-thumb">🎬</div>`
-        }
-      </div>
-      <div class="video-name" title="${escapeHtml(video.filename)}">${escapeHtml(video.filename)}</div>
-      <div class="video-tags">
-        <span class="tag">⏱ ${video.duration_fmt}</span>
-        <span class="tag">📐 ${video.resolution}</span>
-      </div>
+function thumbCard(v, role) {
+  const fp = v.filepath ? `onclick="openPreview('${esc(v.filepath)}','${esc(v.filename)}','${v.duration_fmt}','${v.resolution}')"` : '';
+  return `<div class="vcard">
+    <div class="vcard-role">${role}</div>
+    <div class="thumb-wrap" ${fp}>
+      ${v.thumbnail ? `<img src="data:image/jpeg;base64,${v.thumbnail}" loading="lazy"/>` : `<div class="no-thumb">🎬</div>`}
+      ${v.filepath ? `<div class="play-overlay"><div class="play-circle">▶</div></div>` : ''}
     </div>
-  `;
+    <div class="vcard-name" title="${esc(v.filename)}">${esc(v.filename)}</div>
+    <div class="vcard-tags">
+      <span class="tag">⏱ ${v.duration_fmt}</span>
+      <span class="tag">📐 ${v.resolution}</span>
+    </div>
+  </div>`;
 }
 
 function emptyState(icon, title, desc) {
-  return `
-    <div class="empty-state">
-      <div class="empty-state-icon">${icon}</div>
-      <div class="empty-state-title">${title}</div>
-      <div class="empty-state-desc">${desc}</div>
-    </div>
-  `;
+  return `<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><div class="empty-desc">${desc}</div></div>`;
 }
 
-/* ════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    TABS
-════════════════════════════════════════════════ */
-document.querySelectorAll('.result-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    const panel = document.getElementById('panel-' + tab.dataset.tab);
-    if (panel) panel.classList.add('active');
+═══════════════════════════════════════════════════ */
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab)?.classList.add('active');
   });
 });
 
-/* ════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
+   VIDEO PREVIEW MODAL
+═══════════════════════════════════════════════════ */
+function openPreview(filepath, filename, duration, resolution) {
+  if (!filepath) return;
+  const modal = document.getElementById('videoModal');
+  const video = document.getElementById('modalVideo');
+  document.getElementById('modalTitle').textContent = filename;
+  document.getElementById('modalMeta').textContent  = `${resolution} · ${duration}`;
+  video.src = `/api/video?path=${encodeURIComponent(filepath)}`;
+  modal.classList.remove('hidden');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('videoModal') && e.type !== 'click') return;
+  const modal = document.getElementById('videoModal');
+  const video = document.getElementById('modalVideo');
+  video.pause();
+  video.src = '';
+  modal.classList.add('hidden');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ═══════════════════════════════════════════════════
+   DELETE FUNCTIONALITY
+═══════════════════════════════════════════════════ */
+function toggleDeletePath(path1, path2, btn) {
+  [path1, path2].filter(Boolean).forEach(p => {
+    if (selectedPaths.has(p)) selectedPaths.delete(p);
+    else selectedPaths.add(p);
+  });
+  btn.textContent = selectedPaths.has(path1) ? '✓ Selected' : '🗑 Select for Deletion';
+  btn.style.background = selectedPaths.has(path1) ? 'var(--red-soft)' : '';
+  updateDeleteBar();
+}
+
+function updateDeleteBar() {
+  const bar = document.getElementById('deleteBar');
+  const n   = selectedPaths.size;
+  if (n === 0) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  document.getElementById('delCount').textContent = `${n} file${n>1?'s':''} selected for deletion`;
+}
+
+function clearSelection() {
+  selectedPaths.clear();
+  updateDeleteBar();
+  // Reset all delete buttons
+  document.querySelectorAll('.btn-delete-match').forEach(b => {
+    b.textContent = b.textContent.includes('Clip') ? '🗑 Select Clip for Deletion' : '🗑 Select for Deletion';
+    b.style.background = '';
+  });
+}
+
+async function confirmDelete() {
+  const paths = Array.from(selectedPaths);
+  const ok = confirm(
+    `⚠️ Permanently delete ${paths.length} file(s)?\n\nThis cannot be undone.\n\n` +
+    paths.map(p => '• ' + p.split(/[\\/]/).pop()).join('\n')
+  );
+  if (!ok) return;
+
+  try {
+    const res  = await fetch('/api/delete-files', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ paths }),
+    });
+    const data = await res.json();
+    alert(`✅ Deleted ${data.deleted.length} file(s)` +
+      (data.errors.length ? `\n⚠️ ${data.errors.length} error(s)` : ''));
+    clearSelection();
+    // Remove deleted cards from UI
+    data.deleted.forEach(p => {
+      document.querySelectorAll('.match-card').forEach(card => {
+        if (card.innerHTML.includes(p.split(/[\\/]/).pop())) card.style.opacity = '.3';
+      });
+    });
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════════════════ */
+function exportJSON() {
+  if (!results) return;
+  download('duplicate_video_results.json',
+    'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(results, null, 2)));
+}
+
+function exportCSV() {
+  if (!results) return;
+  const rows = [
+    ['Type','Video1','Video2','Similarity%','Hamming Distance','Segment Start','Segment End']
+  ];
+  results.duplicates.forEach(d => rows.push(
+    ['Duplicate', d.video1, d.video2, d.similarity_pct, d.avg_hamming, '', '']
+  ));
+  results.partials.forEach(p => rows.push(
+    ['Partial', p.shorter_video, p.longer_video, p.similarity_pct, p.avg_hamming,
+     fmtSec(p.segment_start_sec), fmtSec(p.segment_end_sec)]
+  ));
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  download('duplicate_video_results.csv', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv));
+}
+
+function download(name, uri) {
+  const a = document.createElement('a');
+  a.href = uri; a.download = name; a.click();
+}
+
+/* ═══════════════════════════════════════════════════
    RESET
-════════════════════════════════════════════════ */
-resetBtn.addEventListener('click', () => {
-  selectedFiles = [];
-  analysisResults = null;
-  fileInput.value = '';
-  fileList.innerHTML = '';
-  analyzeBtn.disabled = true;
-  resultsSection.classList.remove('visible');
-  uploadSection.style.display = '';
+═══════════════════════════════════════════════════ */
+function resetAll() {
+  results = null; jobId = null;
+  selectedFiles = []; selectedPaths.clear();
+  document.getElementById('fileList').innerHTML   = '';
+  document.getElementById('fileInput').value      = '';
+  document.getElementById('folderHint').textContent = 'Enter the full path to your videos folder and click Scan';
+  document.getElementById('folderHint').style.color = 'var(--txt3)';
+  document.getElementById('btnAnalyze').disabled  = true;
+  document.getElementById('resultsPanel').classList.remove('visible');
+  document.getElementById('inputPanel').style.display = '';
+  document.getElementById('deleteBar').classList.add('hidden');
+  // Reset steps
+  ['s1','s2','s3','s4'].forEach(id => document.getElementById(id).className='step');
+  setProgress(0,'');
   // Reset tabs
-  document.querySelectorAll('.result-tab').forEach((t, i) => {
-    t.classList.toggle('active', i === 0);
-  });
-  document.querySelectorAll('.tab-panel').forEach((p, i) => {
-    p.classList.toggle('active', i === 0);
-  });
-});
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',i===0));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active',i===0));
+}
 
-/* ════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════
    HELPERS
-════════════════════════════════════════════════ */
-function fmtSeconds(sec) {
-  if (sec == null) return '?';
-  const s = Math.floor(sec);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = s % 60;
-  if (h) return `${pad(h)}:${pad(m)}:${pad(r)}`;
-  return `${pad(m)}:${pad(r)}`;
+═══════════════════════════════════════════════════ */
+function fmtSec(s) {
+  if (s==null) return '?';
+  const t=Math.floor(s), h=Math.floor(t/3600), m=Math.floor((t%3600)/60), r=t%60;
+  return h ? `${pad(h)}:${pad(m)}:${pad(r)}` : `${pad(m)}:${pad(r)}`;
 }
-
-function pad(n) { return String(n).padStart(2, '0'); }
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtBytes(b){ return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 </script>
 </body>
 </html>
